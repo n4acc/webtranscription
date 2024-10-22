@@ -14,9 +14,17 @@ function FileUpload() {
     }
   }, []);
 
+  const SUPPORTED_FORMATS = ['audio/flac', 'audio/mp3', 'audio/mp4', 'audio/mpeg', 'audio/mpga', 'audio/m4a', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/webm'];
+
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-    setTranscription('');
+    const selectedFile = e.target.files[0];
+    if (selectedFile && SUPPORTED_FORMATS.includes(selectedFile.type)) {
+      setFile(selectedFile);
+      setTranscription('');
+    } else {
+      alert('Please select a supported audio file format.');
+      e.target.value = null; // Reset the file input
+    }
   };
 
   const handleApiKeyChange = (e) => {

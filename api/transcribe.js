@@ -1,6 +1,7 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const Groq = require('groq-sdk');
 const { IncomingForm } = require('formidable');
+const path = require('path');
 
 module.exports = async (req, res) => {
   console.log('API route hit:', req.method, req.url);
@@ -43,6 +44,14 @@ module.exports = async (req, res) => {
       return;
     }
 
+    const supportedExtensions = ['.flac', '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.ogg', '.opus', '.wav', '.webm'];
+    const fileExtension = path.extname(file.originalFilename).toLowerCase();
+
+    if (!supportedExtensions.includes(fileExtension)) {
+      res.status(400).json({ error: 'Unsupported file format' });
+      return;
+    }
+
     if (!apiKey) {
       res.status(400).json({ error: 'No API key provided' });
       return;
@@ -57,8 +66,14 @@ module.exports = async (req, res) => {
       console.log('Starting transcription...');
 
       // Create a transcription job
+      const fileBuffer = await fs.readFile(file.filepath);
+
       const transcription = await groq.audio.transcriptions.create({
-        file: fs.createReadStream(file.filepath),
+        file: {
+          buffer: fileBuffer,
+          name: file.originalFilename,
+          type: file.mimetype
+        },
         model: 'whisper-large-v3',
         response_format: 'json',
         temperature: 0.0,
@@ -68,12 +83,17 @@ module.exports = async (req, res) => {
       console.log('Transcription completed successfully');
 
       // Clean up file
-      fs.unlinkSync(file.filepath);
+      await fs.unlink(file.filepath);
 
       res.status(200).json({ text: transcription.text });
     } catch (error) {
       console.error('Transcription error:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('File details:', JSON.stringify({
+        name: file.originalFilename,
+        type: file.mimetype,
+        size: file.size
+      }, null, 2));
       res.status(500).json({ error: 'Transcription failed', details: error.message });
     }
   });
