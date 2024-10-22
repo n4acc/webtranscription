@@ -73,6 +73,8 @@ module.exports = async (req, res) => {
       // Convert to MP3
       await convertToMp3(inputPath, outputPath);
 
+      console.log('Starting transcription...'); // Add this log
+
       // Create a transcription job
       const transcription = await groq.audio.transcriptions.create({
         file: fs.createReadStream(outputPath),
@@ -82,6 +84,8 @@ module.exports = async (req, res) => {
         prompt: "Transcribe the following audio without translating it. Maintain the original language of the speech."
       });
 
+      console.log('Transcription completed successfully'); // Add this log
+
       // Clean up files
       fs.unlinkSync(inputPath);
       fs.unlinkSync(outputPath);
@@ -89,7 +93,8 @@ module.exports = async (req, res) => {
       res.status(200).json({ text: transcription.text });
     } catch (error) {
       console.error('Transcription error:', error);
-      res.status(500).json({ error: 'Transcription failed. Please check your API key.' });
+      console.error('Error details:', JSON.stringify(error, null, 2)); // Add this detailed error log
+      res.status(500).json({ error: `Transcription failed. Error: ${error.message}` });
     }
   });
 };
