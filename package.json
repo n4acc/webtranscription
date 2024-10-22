@@ -1,0 +1,14 @@
+{
+    "name": "audio-transcription-app",
+    "version": "1.0.0",
+    "scripts": {
+      "dev": "vercel dev",
+      "build": "cd frontend && npm run build",
+      "start": "vercel start"
+    },
+    "dependencies": {
+      "groq-sdk": "^0.3.1",
+      "fluent-ffmpeg": "^2.1.2",
+      "formidable": "^2.1.2"
+    }
+  }
