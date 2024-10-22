@@ -1,21 +1,6 @@
 const fs = require('fs');
 const Groq = require('groq-sdk');
-const ffmpeg = require('fluent-ffmpeg');
 const { IncomingForm } = require('formidable');
-
-const convertToMp3 = (inputPath, outputPath) => {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .toFormat('mp3')
-      .on('end', () => {
-        resolve(outputPath);
-      })
-      .on('error', (err) => {
-        reject(err);
-      })
-      .save(outputPath);
-  });
-};
 
 module.exports = async (req, res) => {
   console.log('API route hit:', req.method, req.url);
@@ -63,23 +48,17 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const inputPath = file.filepath;
-    const outputPath = `${inputPath}.mp3`;
-
     try {
       // Initialize the Groq client with the user-provided API key
       const groq = new Groq({
         apiKey: apiKey,
       });
 
-      // Convert to MP3
-      await convertToMp3(inputPath, outputPath);
-
       console.log('Starting transcription...');
 
       // Create a transcription job
       const transcription = await groq.audio.transcriptions.create({
-        file: fs.createReadStream(outputPath),
+        file: fs.createReadStream(file.filepath),
         model: 'whisper-large-v3',
         response_format: 'json',
         temperature: 0.0,
@@ -88,9 +67,8 @@ module.exports = async (req, res) => {
 
       console.log('Transcription completed successfully');
 
-      // Clean up files
-      fs.unlinkSync(inputPath);
-      fs.unlinkSync(outputPath);
+      // Clean up file
+      fs.unlinkSync(file.filepath);
 
       res.status(200).json({ text: transcription.text });
     } catch (error) {
