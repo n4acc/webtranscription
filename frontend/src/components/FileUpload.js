@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB in bytes
+
+const SUPPORTED_FORMATS = [
+  'audio/flac', 'audio/mp3', 'audio/mp4', 'audio/mpeg', 'audio/mpga',
+  'audio/m4a', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/webm'
+];
+
 function FileUpload() {
   const [file, setFile] = useState(null);
   const [apiKey, setApiKey] = useState('');
   const [transcription, setTranscription] = useState('');
   const [loading, setLoading] = useState(false);
-  const [jobId, setJobId] = useState(null);
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem('groqApiKey');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
+    if (savedApiKey) setApiKey(savedApiKey);
   }, []);
-
-  const SUPPORTED_FORMATS = ['audio/flac', 'audio/mp3', 'audio/mp4', 'audio/mpeg', 'audio/mpga', 'audio/m4a', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/webm'];
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile && SUPPORTED_FORMATS.includes(selectedFile.type)) {
+      if (selectedFile.size > MAX_FILE_SIZE) {
+        alert(`File size exceeds ${MAX_FILE_SIZE / 1024 / 1024} MB limit. Please choose a smaller file.`);
+        e.target.value = null;
+        return;
+      }
       setFile(selectedFile);
       setTranscription('');
     } else {
       alert('Please select a supported audio file format.');
-      e.target.value = null; // Reset the file input
+      e.target.value = null;
     }
   };
 
@@ -42,40 +49,40 @@ function FileUpload() {
     }
 
     const formData = new FormData();
-    formData.append('audio', file);
+    // Ensure we're using the original file name
+    formData.append('audio', file, file.name);
     formData.append('apiKey', apiKey);
+
+    const API_URL = process.env.NODE_ENV === 'production' 
+      ? '/api/transcribe' 
+      : 'http://localhost:3000/api/transcribe';
 
     try {
       setLoading(true);
-      const response = await axios.post('/api/submitJob', formData, {
+      console.log('Sending request to:', API_URL);
+      console.log('File details:', { name: file.name, type: file.type, size: file.size });
+      const response = await axios.post(API_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
       });
-      setJobId(response.data.jobId);
-      pollJobStatus(response.data.jobId);
+      console.log('Response:', response.data);
+      setTranscription(response.data.text);
     } catch (error) {
-      console.error('Error submitting job:', error);
-      alert('Error submitting transcription job. Please try again.');
+      console.error('Error transcribing audio:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        alert(`Transcription failed: ${error.response.data.error || error.response.statusText}`);
+      } else if (error.request) {
+        console.error('Error request:', error.request);
+        alert('No response received from server. Please check your internet connection.');
+      } else {
+        console.error('Error message:', error.message);
+        alert('Error setting up the request. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const pollJobStatus = async (jobId) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await axios.get(`/api/getJobStatus?jobId=${jobId}`);
-        if (response.data.status === 'completed') {
-          setTranscription(response.data.result);
-          clearInterval(pollInterval);
-        } else if (response.data.status === 'failed') {
-          alert(`Transcription failed: ${response.data.error}`);
-          clearInterval(pollInterval);
-        }
-      } catch (error) {
-        console.error('Error polling job status:', error);
-        clearInterval(pollInterval);
-      }
-    }, 5000); // Poll every 5 seconds
   };
 
   return (
@@ -120,8 +127,7 @@ function FileUpload() {
       </form>
       {transcription && (
         <div className="mt-6">
-          <h2 className="text-lg font-medium text-gray-900
-            block">
+          <h2 className="text-lg font-medium text-gray-900 block">
             <span className="text-sm text-gray-500">Transcription:</span>
             <p className="mt-2 text-sm text-gray-500">{transcription}</p>
           </h2>

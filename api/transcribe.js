@@ -1,7 +1,9 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const Groq = require('groq-sdk');
 const { IncomingForm } = require('formidable');
 const path = require('path');
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB in bytes
 
 module.exports = async (req, res) => {
   console.log('API route hit:', req.method, req.url);
@@ -15,19 +17,20 @@ module.exports = async (req, res) => {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Handle preflight request
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
   if (req.method !== 'POST') {
-    console.log('Method not allowed:', req.method);
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const form = new IncomingForm();
+  const form = new IncomingForm({ 
+    maxFileSize: MAX_FILE_SIZE,
+    keepExtensions: true
+  });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
@@ -39,62 +42,44 @@ module.exports = async (req, res) => {
     const file = files.audio;
     const apiKey = fields.apiKey;
 
-    if (!file) {
-      res.status(400).json({ error: 'No audio file uploaded' });
-      return;
-    }
-
-    const supportedExtensions = ['.flac', '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.ogg', '.opus', '.wav', '.webm'];
-    const fileExtension = path.extname(file.originalFilename).toLowerCase();
-
-    if (!supportedExtensions.includes(fileExtension)) {
-      res.status(400).json({ error: 'Unsupported file format' });
-      return;
-    }
-
-    if (!apiKey) {
-      res.status(400).json({ error: 'No API key provided' });
+    if (!file || !apiKey) {
+      res.status(400).json({ error: 'Missing file or API key' });
       return;
     }
 
     try {
-      // Initialize the Groq client with the user-provided API key
-      const groq = new Groq({
-        apiKey: apiKey,
-      });
+      const groq = new Groq({ apiKey });
 
       console.log('Starting transcription...');
-
-      // Create a transcription job
-      const fileBuffer = await fs.readFile(file.filepath);
+      console.log('File details:', { 
+        name: file.originalFilename, 
+        type: file.mimetype, 
+        size: file.size,
+        path: file.filepath
+      });
 
       const transcription = await groq.audio.transcriptions.create({
-        file: {
-          buffer: fileBuffer,
-          name: file.originalFilename,
-          type: file.mimetype
-        },
-        model: 'whisper-large-v3',
-        response_format: 'json',
+        file: fs.createReadStream(file.filepath),
+        model: "whisper-large-v3-turbo",
+        prompt: "Transcribe the following audio without translating it. Maintain the original language of the speech.",
+        response_format: "json",
         temperature: 0.0,
-        prompt: "Transcribe the following audio without translating it. Maintain the original language of the speech."
       });
 
       console.log('Transcription completed successfully');
 
-      // Clean up file
-      await fs.unlink(file.filepath);
+      fs.unlink(file.filepath, (err) => {
+        if (err) console.error('Error deleting file:', err);
+      });
 
       res.status(200).json({ text: transcription.text });
     } catch (error) {
       console.error('Transcription error:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
-      console.error('File details:', JSON.stringify({
-        name: file.originalFilename,
-        type: file.mimetype,
-        size: file.size
-      }, null, 2));
-      res.status(500).json({ error: 'Transcription failed', details: error.message });
+      res.status(500).json({ 
+        error: 'Transcription failed', 
+        details: error.message,
+        stack: error.stack
+      });
     }
   });
 };

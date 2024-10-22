@@ -8,15 +8,21 @@
       },
       {
         "src": "api/**/*.js",
-        "use": "@vercel/node"
+        "use": "@vercel/node",
+        "config": {
+          "maxDuration": 60
+        }
       }
     ],
     "routes": [
-      { "src": "/api/submitJob", "dest": "/api/submitJob.js" },
-      { "src": "/api/getJobStatus", "dest": "/api/getJobStatus.js" },
-      { "src": "^/static/(.*)", "dest": "/frontend/static/$1" },
-      { "src": "^/favicon.ico", "dest": "/frontend/favicon.ico" },
-      { "src": "^/manifest.json", "dest": "/frontend/manifest.json" },
-      { "src": "^/(.*)", "dest": "/frontend/index.html" }
-    ]
+        { "src": "/api/test", "dest": "/api/test.js" },
+        { "src": "/api/transcribe", "dest": "/api/transcribe.js" },
+        { "src": "^/static/(.*)", "dest": "/frontend/static/$1" },
+        { "src": "^/favicon.ico", "dest": "/frontend/favicon.ico" },
+        { "src": "^/manifest.json", "dest": "/frontend/manifest.json" },
+        { "src": "^/(.*)", "dest": "/frontend/index.html" }
+    ],
+    "env": {
+        "MAX_BODY_SIZE": "10mb"
+    }
   }
