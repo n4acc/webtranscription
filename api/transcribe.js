@@ -41,6 +41,7 @@ module.exports = async (req, res) => {
 
     const file = files.audio;
     const apiKey = fields.apiKey;
+    const language = fields.language;
 
     if (!file || !apiKey) {
       res.status(400).json({ error: 'Missing file or API key' });
@@ -57,14 +58,21 @@ module.exports = async (req, res) => {
         size: file.size,
         path: file.filepath
       });
+      console.log('Selected language:', language);
 
-      const transcription = await groq.audio.transcriptions.create({
+      const transcriptionOptions = {
         file: fs.createReadStream(file.filepath),
         model: "whisper-large-v3-turbo",
-        prompt: "Transcribe the following audio without translating it. Maintain the original language of the speech.",
         response_format: "json",
         temperature: 0.0,
-      });
+      };
+
+      // Add language to the request if it's specified
+      if (language) {
+        transcriptionOptions.language = language;
+      }
+
+      const transcription = await groq.audio.transcriptions.create(transcriptionOptions);
 
       console.log('Transcription completed successfully');
 

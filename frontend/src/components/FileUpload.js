@@ -8,11 +8,28 @@ const SUPPORTED_FORMATS = [
   'audio/m4a', 'audio/ogg', 'audio/opus', 'audio/wav', 'audio/webm'
 ];
 
+const LANGUAGES = [
+  { code: '', name: 'Auto-detect' },
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'ca', name: 'Catalan' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'it', name: 'Italian' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'nl', name: 'Dutch' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'zh', name: 'Chinese' },
+  // Add more languages as needed
+];
+
 function FileUpload() {
   const [file, setFile] = useState(null);
   const [apiKey, setApiKey] = useState('');
   const [transcription, setTranscription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [language, setLanguage] = useState('');
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem('groqApiKey');
@@ -41,6 +58,10 @@ function FileUpload() {
     localStorage.setItem('groqApiKey', newApiKey);
   };
 
+  const handleLanguageChange = (e) => {
+    setLanguage(e.target.value);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file || !apiKey) {
@@ -49,9 +70,9 @@ function FileUpload() {
     }
 
     const formData = new FormData();
-    // Ensure we're using the original file name
-    formData.append('audio', file, file.name);
+    formData.append('audio', file);
     formData.append('apiKey', apiKey);
+    formData.append('language', language);
 
     const API_URL = process.env.NODE_ENV === 'production' 
       ? '/api/transcribe' 
@@ -61,6 +82,7 @@ function FileUpload() {
       setLoading(true);
       console.log('Sending request to:', API_URL);
       console.log('File details:', { name: file.name, type: file.type, size: file.size });
+      console.log('Selected language:', language);
       const response = await axios.post(API_URL, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         maxContentLength: Infinity,
@@ -114,6 +136,19 @@ function FileUpload() {
               file:bg-violet-50 file:text-violet-700
               hover:file:bg-violet-100"
           />
+        </div>
+        <div>
+          <label htmlFor="language" className="block text-sm font-medium text-gray-700">Select Language:</label>
+          <select
+            id="language"
+            value={language}
+            onChange={handleLanguageChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          >
+            {LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>{lang.name}</option>
+            ))}
+          </select>
         </div>
         <button
           type="submit"
