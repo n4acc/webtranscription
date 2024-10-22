@@ -6,6 +6,7 @@ function FileUpload() {
   const [apiKey, setApiKey] = useState('');
   const [transcription, setTranscription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [jobId, setJobId] = useState(null);
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem('groqApiKey');
@@ -44,35 +45,37 @@ function FileUpload() {
     formData.append('audio', file);
     formData.append('apiKey', apiKey);
 
-    const API_URL = process.env.NODE_ENV === 'production' 
-      ? '/api/transcribe' 
-      : 'http://localhost:3000/api/transcribe';
-
     try {
       setLoading(true);
-      console.log('Sending request to:', API_URL);
-      const response = await axios.post(API_URL, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const response = await axios.post('/api/submitJob', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      console.log('Response:', response.data);  // Add this line
-      setTranscription(response.data.text);
+      setJobId(response.data.jobId);
+      pollJobStatus(response.data.jobId);
     } catch (error) {
-      console.error('Error transcribing audio:', error);
-      if (error.response) {
-        console.error('Error response:', error.response.data);  // Modified this line
-        alert(`Transcription failed: ${error.response.data.error || error.response.statusText}`);
-      } else if (error.request) {
-        console.error('Error request:', error.request);
-        alert('No response received from server. Please check your internet connection.');
-      } else {
-        console.error('Error message:', error.message);  // Add this line
-        alert('Error setting up the request. Please try again.');
-      }
+      console.error('Error submitting job:', error);
+      alert('Error submitting transcription job. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const pollJobStatus = async (jobId) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await axios.get(`/api/getJobStatus?jobId=${jobId}`);
+        if (response.data.status === 'completed') {
+          setTranscription(response.data.result);
+          clearInterval(pollInterval);
+        } else if (response.data.status === 'failed') {
+          alert(`Transcription failed: ${response.data.error}`);
+          clearInterval(pollInterval);
+        }
+      } catch (error) {
+        console.error('Error polling job status:', error);
+        clearInterval(pollInterval);
+      }
+    }, 5000); // Poll every 5 seconds
   };
 
   return (
