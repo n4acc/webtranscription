@@ -18,7 +18,8 @@ const convertToMp3 = (inputPath, outputPath) => {
 };
 
 module.exports = async (req, res) => {
-  console.log('API route hit:', req.method, req.url); // Add this log
+  console.log('API route hit:', req.method, req.url);
+  
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,6 +36,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method !== 'POST') {
+    console.log('Method not allowed:', req.method);
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
@@ -44,7 +46,7 @@ module.exports = async (req, res) => {
   form.parse(req, async (err, fields, files) => {
     if (err) {
       console.error('Error parsing form:', err);
-      res.status(500).json({ error: 'Error parsing form data' });
+      res.status(500).json({ error: 'Error parsing form data', details: err.message });
       return;
     }
 
@@ -73,7 +75,7 @@ module.exports = async (req, res) => {
       // Convert to MP3
       await convertToMp3(inputPath, outputPath);
 
-      console.log('Starting transcription...'); // Add this log
+      console.log('Starting transcription...');
 
       // Create a transcription job
       const transcription = await groq.audio.transcriptions.create({
@@ -84,7 +86,7 @@ module.exports = async (req, res) => {
         prompt: "Transcribe the following audio without translating it. Maintain the original language of the speech."
       });
 
-      console.log('Transcription completed successfully'); // Add this log
+      console.log('Transcription completed successfully');
 
       // Clean up files
       fs.unlinkSync(inputPath);
@@ -93,8 +95,8 @@ module.exports = async (req, res) => {
       res.status(200).json({ text: transcription.text });
     } catch (error) {
       console.error('Transcription error:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2)); // Add this detailed error log
-      res.status(500).json({ error: `Transcription failed. Error: ${error.message}` });
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      res.status(500).json({ error: 'Transcription failed', details: error.message });
     }
   });
 };

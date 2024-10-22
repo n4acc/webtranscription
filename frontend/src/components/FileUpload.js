@@ -42,22 +42,24 @@ function FileUpload() {
 
     try {
       setLoading(true);
-      console.log('Sending request to:', API_URL); // Add this log
+      console.log('Sending request to:', API_URL);
       const response = await axios.post(API_URL, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
+      console.log('Response:', response.data);  // Add this line
       setTranscription(response.data.text);
     } catch (error) {
       console.error('Error transcribing audio:', error);
       if (error.response) {
-        console.log('Error response:', error.response); // Add this log
+        console.error('Error response:', error.response.data);  // Modified this line
         alert(`Transcription failed: ${error.response.data.error || error.response.statusText}`);
       } else if (error.request) {
-        console.log('Error request:', error.request); // Add this log
+        console.error('Error request:', error.request);
         alert('No response received from server. Please check your internet connection.');
       } else {
+        console.error('Error message:', error.message);  // Add this line
         alert('Error setting up the request. Please try again.');
       }
     } finally {
